@@ -1,55 +1,64 @@
-// Select form elements
-const form = document.getElementById("historical-event-form");
-const slider = document.getElementById("date-slider");
-const sliderValue = document.getElementById("slider-value");
+// Initialize the display element and number pad buttons
+const displayDate = document.createElement("div");
+displayDate.classList.add("display-date");
+displayDate.textContent = "Enter a Date";
 
-// Update slider value in real-time
-slider.addEventListener("input", () => {
-    sliderValue.textContent = slider.value;
+const numberPadContainer = document.createElement("div");
+numberPadContainer.classList.add("number-pad");
+const numbers = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "Clear", "Enter"];
+
+// Populate number pad with buttons
+numbers.forEach((num) => {
+    const button = document.createElement("button");
+    button.textContent = num;
+    numberPadContainer.appendChild(button);
 });
 
-// Form submission handler
-form.addEventListener("submit", async (event) => {
-    event.preventDefault(); // Prevent default form submission
+// Append date display and number pad to the container
+document.querySelector(".container").innerHTML = ""; // Clear previous form content
+document.querySelector(".container").appendChild(displayDate);
+document.querySelector(".container").appendChild(numberPadContainer);
 
-    // Collect form data
-    const formData = {
-        eventName: document.getElementById("event-name").value.trim(),
-        location: document.getElementById("location").value.trim(),
-        personName: document.getElementById("person-name").value.trim(),
-        startDate: document.getElementById("start-date").value,
-        endDate: document.getElementById("end-date").value,
-        dateSlider: slider.value,
-        relatedEvents: document.getElementById("related-events") 
-                        ? document.getElementById("related-events").value.trim() 
-                        : "", // Use empty string if not found
-    };
+let enteredDate = ""; // Store entered date as a string
 
-    // Validate date range
-    if (formData.startDate && formData.endDate && new Date(formData.startDate) > new Date(formData.endDate)) {
-        alert("The end date cannot be earlier than the start date.");
-        return;
+// Handle number pad clicks
+numberPadContainer.addEventListener("click", (event) => {
+    if (!event.target.matches("button")) return;
+
+    const value = event.target.textContent;
+
+    if (value === "Clear") {
+        enteredDate = ""; // Clear input
+    } else if (value === "Enter") {
+        if (enteredDate.length === 8) {
+            submitDate(enteredDate); // Trigger date submission if valid
+        } else {
+            alert("Please enter an 8-digit date (MMDDYYYY).");
+        }
+    } else if (enteredDate.length < 8) {
+        enteredDate += value; // Append digit to entered date
     }
 
+    // Update display with current date entry or prompt
+    displayDate.textContent = enteredDate || "Enter a Date";
+});
+
+// Submit date to backend
+async function submitDate(date) {
     try {
-        // Submit data to backend
-        const response = await fetch("/api/events/submit-event", {
-            method: "POST",
+        const response = await fetch(`/api/events/get-event-by-date?date=${date}`, {
+            method: "GET",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(formData),
         });
 
-        // Handle response
         if (response.ok) {
-            const result = await response.json();
-            const eventId = result.eventId;
-            // Redirect with eventId and location
-            window.location.href = `/display.html?eventId=${eventId}&location=${encodeURIComponent(formData.location)}`;
+            const event = await response.json();
+            window.location.href = `/display.html?date=${date}&event=${encodeURIComponent(event.name)}`;
         } else {
-            alert("Failed to submit event. Please try again.");
+            alert("No event found for this date. Please try another date.");
         }
     } catch (error) {
-        console.error("Error submitting event:", error);
+        console.error("Error fetching event data:", error);
         alert("An error occurred. Please try again.");
     }
-});
+}
